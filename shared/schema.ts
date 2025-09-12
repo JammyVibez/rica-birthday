@@ -1,10 +1,11 @@
+
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, json, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, json, timestamp, uuid } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const birthdayCustomizations = pgTable("birthday_customizations", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: uuid("id").primaryKey().defaultRandom(),
   recipientName: text("recipient_name").notNull().default("Rica"),
   authorName: text("author_name").notNull().default("[Your Name]"),
   
@@ -18,13 +19,31 @@ export const birthdayCustomizations = pgTable("birthday_customizations", {
   animeReason: text("anime_reason").default("[Add your reason here]"),
   
   // Timeline entries (16 days)
-  timelineEntries: json("timeline_entries").$type<string[]>().default(sql`'[]'`),
+  timelineEntries: json("timeline_entries").$type<string[]>().default(sql`'[]'::json`),
   
   // Gallery
-  galleryItems: json("gallery_items").$type<Array<{imageUrl: string, caption: string}>>().default(sql`'[]'`),
+  galleryItems: json("gallery_items").$type<Array<{imageUrl: string, caption: string}>>().default(sql`'[]'::json`),
   
   // Anime Playlist
-  animePlaylist: json("anime_playlist").$type<Array<{title: string, artist: string, youtubeUrl: string, description: string}>>().default(sql`'[]'`),
+  animePlaylist: json("anime_playlist").$type<Array<{title: string, artist: string, youtubeUrl: string, description: string}>>().default(sql`'[]'::json`),
+  
+  // Memory Journal
+  memoryEntries: json("memory_entries").$type<Array<{id: string, date: string, content: string}>>().default(sql`'[]'::json`),
+  
+  // Hidden Messages
+  hiddenMessages: json("hidden_messages").$type<Array<{id: string, title: string, message: string, unlocked: boolean}>>().default(sql`'[]'::json`),
+  
+  // Favorite Things
+  favoriteThings: json("favorite_things").$type<{
+    colors: string[];
+    foods: string[];
+    animes: string[];
+    songs: string[];
+    activities: string[];
+  }>().default(sql`'{"colors":[],"foods":[],"animes":[],"songs":[],"activities":[]}'::json`),
+  
+  // Future Surprises
+  futureSurprises: json("future_surprises").$type<Array<{id: string, title: string, message: string, date: string, revealed: boolean}>>().default(sql`'[]'::json`),
   
   // Letter content
   letterText: text("letter_text"),

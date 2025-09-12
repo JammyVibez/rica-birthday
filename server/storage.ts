@@ -1,8 +1,10 @@
+
 import { type BirthdayCustomization, type InsertBirthdayCustomization, birthdayCustomizations } from "@shared/schema";
 import { randomUUID } from "crypto";
-import { drizzle } from "drizzle-orm/neon-http";
-import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import { eq, sql } from "drizzle-orm";
+import { createClient } from "@supabase/supabase-js";
 
 export interface IStorage {
   getBirthdayCustomization(id: string): Promise<BirthdayCustomization | undefined>;
@@ -11,98 +13,9 @@ export interface IStorage {
   updateBirthdayCustomization(id: string, customization: Partial<InsertBirthdayCustomization>): Promise<BirthdayCustomization | undefined>;
 }
 
-export class MemStorage implements IStorage {
-  private customizations: Map<string, BirthdayCustomization>;
-
-  constructor() {
-    this.customizations = new Map();
-    
-    // Create default customization
-    const defaultId = "default";
-    const defaultCustomization: BirthdayCustomization = {
-      id: defaultId,
-      recipientName: "Rica",
-      authorName: "[Your Name]",
-      favoriteColor: "[Your favorite color]",
-      favoriteFlower: "[Your favorite flower]",
-      favoriteFood: "[Your favorite food]",
-      favoriteSong: "[Your favorite song]",
-      animeReason: "[Add your reason here]",
-      timelineEntries: Array.from({ length: 16 }, (_, i) => `[Add your memory from day ${i + 1} here]`) as string[],
-      galleryItems: [] as Array<{imageUrl: string, caption: string}>,
-      letterText: `Rica,
-
-Happy Birthday. I don't have a gift wrapped in a box, but I wrapped this website with care — every page is a small piece of how you make my days better.
-
-We've only known each other a short while, but you've already become someone I think about often. Your smile, your laugh, and the things you love (like Kanade) tell me who you are — gentle, strong, and quietly beautiful.
-
-I hope this little book makes you smile. I made it because I wanted you to know you matter — more than you might realize.
-
-Always,
-[Your Name]`,
-      colorTheme: "default",
-      animationTheme: "default",
-      audioFile: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    
-    this.customizations.set(defaultId, defaultCustomization);
-  }
-
-  async getBirthdayCustomization(id: string): Promise<BirthdayCustomization | undefined> {
-    return this.customizations.get(id);
-  }
-
-  async getDefaultBirthdayCustomization(): Promise<BirthdayCustomization> {
-    return this.customizations.get("default")!;
-  }
-
-  async createBirthdayCustomization(insertCustomization: InsertBirthdayCustomization): Promise<BirthdayCustomization> {
-    const id = randomUUID();
-    const now = new Date();
-    
-    // Ensure required fields have default values
-    const customization: BirthdayCustomization = { 
-      id, 
-      recipientName: insertCustomization.recipientName || "Rica",
-      authorName: insertCustomization.authorName || "[Your Name]",
-      favoriteColor: insertCustomization.favoriteColor || null,
-      favoriteFlower: insertCustomization.favoriteFlower || null,
-      favoriteFood: insertCustomization.favoriteFood || null,
-      favoriteSong: insertCustomization.favoriteSong || null,
-      animeReason: insertCustomization.animeReason || null,
-      timelineEntries: (insertCustomization.timelineEntries as string[]) || [],
-      galleryItems: (insertCustomization.galleryItems as Array<{imageUrl: string, caption: string}>) || [],
-      letterText: insertCustomization.letterText || null,
-      colorTheme: insertCustomization.colorTheme || "default",
-      animationTheme: insertCustomization.animationTheme || "default",
-      audioFile: insertCustomization.audioFile || null,
-      createdAt: now, 
-      updatedAt: now 
-    };
-    
-    this.customizations.set(id, customization);
-    return customization;
-  }
-
-  async updateBirthdayCustomization(id: string, updates: Partial<InsertBirthdayCustomization>): Promise<BirthdayCustomization | undefined> {
-    const existing = this.customizations.get(id);
-    if (!existing) return undefined;
-    
-    const updated: BirthdayCustomization = {
-      ...existing,
-      ...updates,
-      updatedAt: new Date(),
-    };
-    
-    this.customizations.set(id, updated);
-    return updated;
-  }
-}
-
-export class DrizzleStorage implements IStorage {
+export class SupabaseStorage implements IStorage {
   private db;
+  private supabase;
   private isInitialized = false;
 
   constructor() {
@@ -110,8 +23,20 @@ export class DrizzleStorage implements IStorage {
       throw new Error("DATABASE_URL is required for database connection");
     }
     
-    const sql = neon(process.env.DATABASE_URL);
-    this.db = drizzle(sql);
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required");
+    }
+    
+    const client = postgres(process.env.DATABASE_URL, { 
+      max: 1,
+      ssl: 'require'
+    });
+    this.db = drizzle(client);
+    
+    this.supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
   }
 
   private async ensureInitialized(): Promise<void> {
@@ -127,28 +52,7 @@ export class DrizzleStorage implements IStorage {
       this.isInitialized = true;
     } catch (error: any) {
       console.log("[Database] Schema verification failed:", error.message);
-      
-      // If table doesn't exist, attempt to create it using db:push
-      if (error.message?.includes('relation') && error.message?.includes('does not exist')) {
-        console.log("[Database] Attempting to create database schema...");
-        
-        try {
-          // Use drizzle-kit push to create tables
-          const { execSync } = require('child_process');
-          execSync('npm run db:push', { 
-            stdio: 'pipe',
-            env: { ...process.env, NODE_ENV: 'development' }
-          });
-          
-          console.log("[Database] Schema created successfully");
-          this.isInitialized = true;
-        } catch (pushError: any) {
-          console.error("[Database] Failed to create schema:", pushError.message);
-          throw new Error(`Database initialization failed: ${pushError.message}`);
-        }
-      } else {
-        throw error;
-      }
+      throw new Error(`Database connection failed: ${error.message}`);
     }
   }
 
@@ -198,6 +102,45 @@ export class DrizzleStorage implements IStorage {
         animeReason: "[Add your reason here]",
         timelineEntries: Array.from({ length: 16 }, (_, i) => `[Add your memory from day ${i + 1} here]`) as string[],
         galleryItems: [] as Array<{imageUrl: string, caption: string}>,
+        animePlaylist: [] as Array<{title: string, artist: string, youtubeUrl: string, description: string}>,
+        memoryEntries: [] as Array<{id: string, date: string, content: string}>,
+        hiddenMessages: [
+          {
+            id: "welcome",
+            title: "Welcome Message", 
+            message: "Rica, I hope this little digital book brings a smile to your face. Every page was made with care, thinking of you.",
+            unlocked: false
+          },
+          {
+            id: "special",
+            title: "Something Special",
+            message: "You have this amazing way of making ordinary moments feel magical. Thank you for being you.",
+            unlocked: false
+          }
+        ] as Array<{id: string, title: string, message: string, unlocked: boolean}>,
+        favoriteThings: {
+          colors: ["Soft pastels", "Sakura pink", "Sky blue"],
+          foods: ["[Add her favorites]", "[Sweet treats]", "[Comfort foods]"],
+          animes: ["Angel Beats!", "[Other favorites]", "[To be discovered]"],
+          songs: ["My Soul, Your Beats!", "[Her playlist]", "[Songs that remind me of her]"],
+          activities: ["[Things she enjoys]", "[Our shared interests]", "[New adventures to try]"]
+        },
+        futureSurprises: [
+          {
+            id: "1",
+            title: "Monthly Letter",
+            message: "Rica, it's been another amazing month getting to know you better. Here's what made me smile this month...",
+            date: new Date().toLocaleDateString(),
+            revealed: false
+          },
+          {
+            id: "2", 
+            title: "Random Thoughts",
+            message: "I was thinking about you today and realized how much brighter my days have become since we started talking. Thank you for being you! 💖",
+            date: new Date().toLocaleDateString(),
+            revealed: false
+          }
+        ] as Array<{id: string, title: string, message: string, date: string, revealed: boolean}>,
         letterText: `Rica,
 
 Happy Birthday. I don't have a gift wrapped in a box, but I wrapped this website with care — every page is a small piece of how you make my days better.
@@ -245,6 +188,17 @@ Always,
           animationTheme: insertCustomization.animationTheme || "default",
           timelineEntries: insertCustomization.timelineEntries || [],
           galleryItems: insertCustomization.galleryItems || [],
+          animePlaylist: insertCustomization.animePlaylist || [],
+          memoryEntries: insertCustomization.memoryEntries || [],
+          hiddenMessages: insertCustomization.hiddenMessages || [],
+          favoriteThings: insertCustomization.favoriteThings || {
+            colors: [],
+            foods: [],
+            animes: [],
+            songs: [],
+            activities: []
+          },
+          futureSurprises: insertCustomization.futureSurprises || [],
         })
         .returning();
       
@@ -281,6 +235,33 @@ Always,
       throw error;
     }
   }
+
+  // Helper method to upload files to Supabase Storage
+  async uploadFile(file: Buffer, fileName: string, contentType: string): Promise<string | null> {
+    try {
+      const { data, error } = await this.supabase.storage
+        .from('birthday-gallery')
+        .upload(fileName, file, {
+          contentType,
+          upsert: true
+        });
+
+      if (error) {
+        console.error("[Storage] Error uploading file:", error);
+        return null;
+      }
+
+      // Get public URL
+      const { data: urlData } = this.supabase.storage
+        .from('birthday-gallery')
+        .getPublicUrl(fileName);
+
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error("[Storage] Error uploading file:", error);
+      return null;
+    }
+  }
 }
 
-export const storage = new DrizzleStorage();
+export const storage = new SupabaseStorage();

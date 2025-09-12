@@ -1,94 +1,41 @@
-import { createContext, useContext, useEffect, useState } from "react";
+
+import { createContext, useContext, ReactNode } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import type { BirthdayCustomization } from "@shared/schema";
+import type { BirthdayCustomization, InsertBirthdayCustomization } from "@shared/schema";
 
 interface BirthdayContextType {
   customization: BirthdayCustomization | undefined;
   isLoading: boolean;
-  updateField: (field: keyof BirthdayCustomization, value: any) => void;
-  updateTimelineEntry: (index: number, value: string) => void;
-  updateGalleryItem: (index: number, imageUrl?: string, caption?: string) => void;
-  addPlaylistItem: (item: {title: string, artist: string, youtubeUrl: string, description: string}) => void;
-  updatePlaylistItem: (index: number, updates: Partial<{title: string, artist: string, youtubeUrl: string, description: string}>) => void;
-  removePlaylistItem: (index: number) => void;
+  error: Error | null;
+  updateCustomization: (updates: Partial<InsertBirthdayCustomization>) => Promise<void>;
 }
 
-const BirthdayContext = createContext<BirthdayContextType | null>(null);
+const BirthdayContext = createContext<BirthdayContextType | undefined>(undefined);
 
-export function BirthdayProvider({ children }: { children: React.ReactNode }) {
+export function BirthdayProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
-  
-  // Fetch birthday customization data
-  const { data: customization, isLoading } = useQuery<BirthdayCustomization>({
-    queryKey: ["/api/birthday"],
+
+  // Fetch birthday customization
+  const { data: customization, isLoading, error } = useQuery({
+    queryKey: ["birthday", "default"],
+    queryFn: () => apiRequest("/birthday"),
   });
 
-  // Mutation for updating birthday customization
+  // Update mutation
   const updateMutation = useMutation({
-    mutationFn: async (updates: Partial<BirthdayCustomization>) => {
-      if (!customization) return;
-      const response = await apiRequest("PATCH", `/api/birthday/${customization.id}`, updates);
-      return response.json();
-    },
+    mutationFn: (updates: Partial<InsertBirthdayCustomization>) =>
+      apiRequest("/birthday/default", {
+        method: "PATCH",
+        body: JSON.stringify(updates),
+      }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/birthday"] });
+      queryClient.invalidateQueries({ queryKey: ["birthday", "default"] });
     },
   });
 
-  const updateField = (field: keyof BirthdayCustomization, value: any) => {
-    updateMutation.mutate({ [field]: value });
-  };
-
-  const updateTimelineEntry = (index: number, value: string) => {
-    if (!customization?.timelineEntries) return;
-    const newEntries = [...customization.timelineEntries];
-    newEntries[index] = value;
-    updateField("timelineEntries", newEntries);
-  };
-
-  const updateGalleryItem = (index: number, imageUrl?: string, caption?: string) => {
-    if (!customization?.galleryItems) return;
-    const newItems = [...customization.galleryItems];
-    
-    // Ensure the array is long enough
-    while (newItems.length <= index) {
-      newItems.push({ imageUrl: "", caption: `Memory #${newItems.length + 1}` });
-    }
-    
-    if (imageUrl !== undefined) {
-      newItems[index].imageUrl = imageUrl;
-    }
-    if (caption !== undefined) {
-      newItems[index].caption = caption;
-    }
-    
-    updateField("galleryItems", newItems);
-  };
-
-  const addPlaylistItem = (item: {title: string, artist: string, youtubeUrl: string, description: string}) => {
-    if (!customization) return;
-    const currentPlaylist = customization.animePlaylist || [];
-    const newPlaylist = [...currentPlaylist, item];
-    updateField("animePlaylist", newPlaylist);
-  };
-
-  const updatePlaylistItem = (index: number, updates: Partial<{title: string, artist: string, youtubeUrl: string, description: string}>) => {
-    if (!customization?.animePlaylist) return;
-    const newPlaylist = [...customization.animePlaylist];
-    if (index >= 0 && index < newPlaylist.length) {
-      newPlaylist[index] = { ...newPlaylist[index], ...updates };
-      updateField("animePlaylist", newPlaylist);
-    }
-  };
-
-  const removePlaylistItem = (index: number) => {
-    if (!customization?.animePlaylist) return;
-    const newPlaylist = [...customization.animePlaylist];
-    if (index >= 0 && index < newPlaylist.length) {
-      newPlaylist.splice(index, 1);
-      updateField("animePlaylist", newPlaylist);
-    }
+  const updateCustomization = async (updates: Partial<InsertBirthdayCustomization>) => {
+    await updateMutation.mutateAsync(updates);
   };
 
   return (
@@ -96,12 +43,8 @@ export function BirthdayProvider({ children }: { children: React.ReactNode }) {
       value={{
         customization,
         isLoading,
-        updateField,
-        updateTimelineEntry,
-        updateGalleryItem,
-        addPlaylistItem,
-        updatePlaylistItem,
-        removePlaylistItem,
+        error: error as Error | null,
+        updateCustomization,
       }}
     >
       {children}
@@ -111,7 +54,7 @@ export function BirthdayProvider({ children }: { children: React.ReactNode }) {
 
 export function useBirthdayContext() {
   const context = useContext(BirthdayContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error("useBirthdayContext must be used within a BirthdayProvider");
   }
   return context;
