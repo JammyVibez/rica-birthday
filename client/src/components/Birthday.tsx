@@ -5,11 +5,18 @@ import AnimeCornerPage from "./pages/AnimeCornerPage";
 import TimelinePage from "./pages/TimelinePage";
 import ComplimentsPage from "./pages/ComplimentsPage";
 import GalleryPage from "./pages/GalleryPage";
+import MemoryJournalPage from "./pages/MemoryJournalPage";
+import HiddenMessagesPage from "./pages/HiddenMessagesPage";
+import FavoriteThingsPage from "./pages/FavoriteThingsPage";
+import CountdownPage from "./pages/CountdownPage";
+import AnimePlaylistPage from "./pages/AnimePlaylistPage";
+import FutureSurprisesPage from "./pages/FutureSurprisesPage";
 import SurprisePage from "./pages/SurprisePage";
 import LetterPage from "./pages/LetterPage";
 import EndingPage from "./pages/EndingPage";
 
-const totalPages = 9;
+
+const totalPages = 15;
 
 export default function Birthday() {
   const [currentPage, setCurrentPage] = useState(1);
@@ -49,7 +56,7 @@ export default function Birthday() {
   const renderCurrentPage = () => {
     switch (currentPage) {
       case 1:
-        return <GreetingPage onEnter={nextPage} />;
+        return <GreetingPage onNext={nextPage} />;
       case 2:
         return <AboutRicaPage />;
       case 3:
@@ -61,13 +68,25 @@ export default function Birthday() {
       case 6:
         return <GalleryPage />;
       case 7:
-        return <SurprisePage />;
+        return <MemoryJournalPage />;
       case 8:
-        return <LetterPage />;
+        return <HiddenMessagesPage />;
       case 9:
+        return <FavoriteThingsPage />;
+      case 10:
+        return <CountdownPage />;
+      case 11:
+        return <AnimePlaylistPage />;
+      case 12:
+        return <FutureSurprisesPage />;
+      case 13:
+        return <SurprisePage />;
+      case 14:
+        return <LetterPage />;
+      case 15:
         return <EndingPage onRestart={restartJourney} />;
       default:
-        return <GreetingPage onEnter={nextPage} />;
+        return <GreetingPage onNext={nextPage} />;
     }
   };
 
