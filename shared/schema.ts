@@ -23,6 +23,9 @@ export const birthdayCustomizations = pgTable("birthday_customizations", {
   // Gallery
   galleryItems: json("gallery_items").$type<Array<{imageUrl: string, caption: string}>>().default(sql`'[]'`),
   
+  // Anime Playlist
+  animePlaylist: json("anime_playlist").$type<Array<{title: string, artist: string, youtubeUrl: string, description: string}>>().default(sql`'[]'`),
+  
   // Letter content
   letterText: text("letter_text"),
   

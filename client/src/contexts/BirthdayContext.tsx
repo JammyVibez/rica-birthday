@@ -9,6 +9,9 @@ interface BirthdayContextType {
   updateField: (field: keyof BirthdayCustomization, value: any) => void;
   updateTimelineEntry: (index: number, value: string) => void;
   updateGalleryItem: (index: number, imageUrl?: string, caption?: string) => void;
+  addPlaylistItem: (item: {title: string, artist: string, youtubeUrl: string, description: string}) => void;
+  updatePlaylistItem: (index: number, updates: Partial<{title: string, artist: string, youtubeUrl: string, description: string}>) => void;
+  removePlaylistItem: (index: number) => void;
 }
 
 const BirthdayContext = createContext<BirthdayContextType | null>(null);
@@ -63,6 +66,31 @@ export function BirthdayProvider({ children }: { children: React.ReactNode }) {
     updateField("galleryItems", newItems);
   };
 
+  const addPlaylistItem = (item: {title: string, artist: string, youtubeUrl: string, description: string}) => {
+    if (!customization) return;
+    const currentPlaylist = customization.animePlaylist || [];
+    const newPlaylist = [...currentPlaylist, item];
+    updateField("animePlaylist", newPlaylist);
+  };
+
+  const updatePlaylistItem = (index: number, updates: Partial<{title: string, artist: string, youtubeUrl: string, description: string}>) => {
+    if (!customization?.animePlaylist) return;
+    const newPlaylist = [...customization.animePlaylist];
+    if (index >= 0 && index < newPlaylist.length) {
+      newPlaylist[index] = { ...newPlaylist[index], ...updates };
+      updateField("animePlaylist", newPlaylist);
+    }
+  };
+
+  const removePlaylistItem = (index: number) => {
+    if (!customization?.animePlaylist) return;
+    const newPlaylist = [...customization.animePlaylist];
+    if (index >= 0 && index < newPlaylist.length) {
+      newPlaylist.splice(index, 1);
+      updateField("animePlaylist", newPlaylist);
+    }
+  };
+
   return (
     <BirthdayContext.Provider
       value={{
@@ -71,6 +99,9 @@ export function BirthdayProvider({ children }: { children: React.ReactNode }) {
         updateField,
         updateTimelineEntry,
         updateGalleryItem,
+        addPlaylistItem,
+        updatePlaylistItem,
+        removePlaylistItem,
       }}
     >
       {children}
