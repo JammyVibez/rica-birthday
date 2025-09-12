@@ -1,4 +1,17 @@
-const letterText = `Rica,
+import { useBirthdayContext } from "../../contexts/BirthdayContext";
+
+export default function LetterPage() {
+  const { customization, isLoading, updateField } = useBirthdayContext();
+  
+  if (isLoading) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-xl text-[var(--text-muted)]">Loading...</div>
+      </div>
+    );
+  }
+
+  const letterText = customization?.letterText || `Rica,
 
 Happy Birthday. I don't have a gift wrapped in a box, but I wrapped this website with care — every page is a small piece of how you make my days better.
 
@@ -7,9 +20,8 @@ We've only known each other a short while, but you've already become someone I t
 I hope this little book makes you smile. I made it because I wanted you to know you matter — more than you might realize.
 
 Always,
-[Your Name]`;
+${customization?.authorName || "[Your Name]"}`;
 
-export default function LetterPage() {
   const downloadLetter = () => {
     const blob = new Blob([letterText], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -35,7 +47,14 @@ export default function LetterPage() {
     <div>
       <h2 className="page-title">A Letter for You</h2>
       
-      <div className="bg-gradient-to-br from-[var(--primary-cream)] to-white rounded-2xl p-10 shadow-2xl relative my-5">
+      <div 
+        className="bg-gradient-to-br from-[var(--primary-cream)] to-white rounded-2xl p-10 shadow-2xl relative my-5 cursor-pointer hover:shadow-3xl transition-shadow"
+        onClick={() => {
+          const newLetter = prompt("Edit your letter:", letterText);
+          if (newLetter !== null) updateField("letterText", newLetter);
+        }}
+        data-testid="letter-container"
+      >
         <div className="absolute top-0 left-10 w-0.5 h-full bg-[var(--primary-rose)] opacity-30"></div>
         <div
           data-testid="letter-text"
@@ -43,6 +62,7 @@ export default function LetterPage() {
         >
           {letterText}
         </div>
+        <p className="text-sm text-[var(--text-muted)] mb-4 italic">Click to edit this letter!</p>
         <div className="flex gap-4 justify-center flex-wrap">
           <button
             data-testid="button-download"

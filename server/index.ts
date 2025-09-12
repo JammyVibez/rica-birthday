@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { storage } from "./storage";
 
 const app = express();
 app.use(express.json());
@@ -37,6 +38,18 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Initialize database before starting server
+  try {
+    log("[Startup] Initializing database...");
+    // Trigger database initialization by checking default customization
+    await storage.getDefaultBirthdayCustomization();
+    log("[Startup] Database initialization completed successfully");
+  } catch (error: any) {
+    log(`[Startup] Database initialization failed: ${error.message}`);
+    log("[Startup] Server will still start, but database operations may fail");
+    console.error("Database initialization error:", error);
+  }
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

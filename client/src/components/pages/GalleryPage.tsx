@@ -1,19 +1,29 @@
 import { useState } from "react";
-
-const placeholderImages = [
-  'https://images.unsplash.com/photo-1516796181074-bf453fbfa3e6?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600',
-  'https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600',
-  'https://images.unsplash.com/photo-1544027993-37dbfe43562a?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600',
-  'https://images.unsplash.com/photo-1518709268805-4e9042af2176?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600',
-  'https://images.unsplash.com/photo-1502920917128-1aa500764cbd?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600',
-  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600'
-];
+import { useBirthdayContext } from "../../contexts/BirthdayContext";
 
 export default function GalleryPage() {
+  const { customization, isLoading, updateGalleryItem } = useBirthdayContext();
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  
+  if (isLoading) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-xl text-[var(--text-muted)]">Loading...</div>
+      </div>
+    );
+  }
+
+  // Ensure we have exactly 6 gallery items
+  const galleryItems = Array.from({ length: 6 }, (_, i) => {
+    const existing = customization?.galleryItems?.[i];
+    return existing || { imageUrl: "", caption: `Memory #${i + 1}` };
+  });
 
   const openLightbox = (imageIndex: number) => {
-    setLightboxImage(placeholderImages[imageIndex]);
+    const item = galleryItems[imageIndex];
+    if (item.imageUrl) {
+      setLightboxImage(item.imageUrl);
+    }
   };
 
   const closeLightbox = () => {
@@ -25,17 +35,61 @@ export default function GalleryPage() {
       <h2 className="page-title">Little Things You Love</h2>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mt-8">
-        {Array.from({ length: 6 }).map((_, i) => (
+        {galleryItems.map((item, i) => (
           <div
             key={i}
             data-testid={`gallery-item-${i + 1}`}
-            onClick={() => openLightbox(i)}
-            className="aspect-square bg-gradient-to-br from-[var(--primary-cream)] to-[var(--primary-lavender)] rounded-2xl cursor-pointer transition-all duration-300 shadow-lg flex items-center justify-center text-xl text-[var(--text-muted)] text-center p-5 hover:transform hover:-translate-y-1 hover:scale-105 hover:shadow-xl"
+            className="aspect-square bg-gradient-to-br from-[var(--primary-cream)] to-[var(--primary-lavender)] rounded-2xl cursor-pointer transition-all duration-300 shadow-lg flex flex-col items-center justify-center text-xl text-[var(--text-muted)] text-center p-5 hover:transform hover:-translate-y-1 hover:scale-105 hover:shadow-xl group"
+            onClick={() => {
+              if (item.imageUrl) {
+                openLightbox(i);
+              } else {
+                const newImageUrl = prompt("Enter image URL:", item.imageUrl || "");
+                if (newImageUrl !== null) {
+                  updateGalleryItem(i, newImageUrl, item.caption);
+                }
+              }
+            }}
           >
-            🖼️<br/>Memory #{i + 1}<br/>[Replace with photo]
+            {item.imageUrl ? (
+              <div className="w-full h-full rounded-xl overflow-hidden relative">
+                <img 
+                  src={item.imageUrl} 
+                  alt={item.caption}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-end justify-center pb-2">
+                  <span className="text-white text-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                    Click to view
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <>
+                🖼️<br/>
+                <span className="text-sm">Click to add photo</span>
+              </>
+            )}
+            <div 
+              className="mt-2 text-sm cursor-pointer hover:text-[var(--primary-rose)] transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                const newCaption = prompt("Edit caption:", item.caption);
+                if (newCaption !== null) {
+                  updateGalleryItem(i, item.imageUrl, newCaption);
+                }
+              }}
+              data-testid={`caption-edit-${i}`}
+            >
+              {item.caption}
+            </div>
           </div>
         ))}
       </div>
+      
+      <p className="text-center mt-8 italic text-[var(--text-muted)]">
+        💝 Click on empty slots to add photos, or click captions to edit them!
+      </p>
 
       {/* Lightbox */}
       {lightboxImage && (
