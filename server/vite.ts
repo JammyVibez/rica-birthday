@@ -72,18 +72,18 @@ export async function setupVite(app: Express, server: Server) {
 
 export function serveStatic(app: Express) {
   // Your vite.config builds to dist/public
-  const distPath = path.resolve(__dirname, "../dist/public");
+  const publicPath = path.resolve(__dirname, "../client/dist");
 
-  if (!fs.existsSync(distPath)) {
+  if (!fs.existsSync(publicPath)) {
     throw new Error(
-      `Could not find the build directory: ${distPath}. Make sure to run "npm run build" first.`
+      `Could not find the build directory: ${publicPath}. Make sure to run "npm run build" first.`
     );
   }
 
-  app.use(express.static(distPath));
+  app.use(express.static(publicPath));
 
   // fallback to index.html for SPA routes
   app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+    res.sendFile(path.resolve(publicPath, "index.html"));
   });
 }

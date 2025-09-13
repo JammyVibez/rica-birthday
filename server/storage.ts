@@ -78,10 +78,11 @@ export class SupabaseStorage implements IStorage {
     
     try {
       // First try to get existing default record
+      const defaultId = "00000000-0000-0000-0000-000000000001"; // Use a proper UUID format for default
       let result = await this.db
         .select()
         .from(birthdayCustomizations)
-        .where(eq(birthdayCustomizations.id, "default"))
+        .where(eq(birthdayCustomizations.id, defaultId))
         .limit(1);
       
       if (result.length > 0) {
@@ -156,12 +157,13 @@ Always,
         audioFile: null,
       };
       
-      // Insert with specific ID for default record
+      // Insert with specific ID for default record  
+      const defaultId = "00000000-0000-0000-0000-000000000001"; // Use a proper UUID format for default
       const inserted = await this.db
         .insert(birthdayCustomizations)
         .values({
           ...defaultCustomization,
-          id: "default"
+          id: defaultId
         })
         .returning();
       
