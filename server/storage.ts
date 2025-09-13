@@ -157,8 +157,7 @@ Always,
         audioFile: null,
       };
       
-      // Insert with specific ID for default record  
-      const defaultId = "00000000-0000-0000-0000-000000000001"; // Use a proper UUID format for default
+      // Insert with specific ID for default record
       const inserted = await this.db
         .insert(birthdayCustomizations)
         .values({
